@@ -1,0 +1,2 @@
+year,Site,Env,Date,D20.air,D20cum.air,D20.apex,D20cum.apex,Tmin.air,Tmax.air,Tmean.air,RHmin.air,RHmax.air,RHmean.air,Raincum,Windspeedmax,ET0.air,Rad,Ri,VPD.air,VPD.apex,Tmax.apex,nbHourSupTmax.apex,Tnight,WW.median3060,WD.median3060,WW.30,WW.60,WD.30,WD.60,type
+2013,Campagnola,Cam13,2013-11-13,0.3826548566,161.0456168514,0.3826548566,175.5668581168,6.1,16.3,11.2,64,90,80,0,1.2,0.7,7.92,5.92,0.6696937266,0.6696937266,16.3,0,6.1,NA,NA,NA,NA,NA,NA,CrossValidation

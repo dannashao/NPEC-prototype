@@ -1,0 +1,2 @@
+year,Site,Env,Date,D20.air,D20cum.air,D20.apex,D20cum.apex,Tmin.air,Tmax.air,Tmean.air,RHmin.air,RHmax.air,RHmean.air,Raincum,Windspeedmax,ET0.air,Rad,Ri,VPD.air,VPD.apex,Tmax.apex,nbHourSupTmax.apex,Tnight,WW.median3060,WD.median3060,WW.30,WW.60,WD.30,WD.60,type
+2012,Gaillac,Gai12,2012-05-21,0.38382247,0.38382247,0.4017212526,0.4017212526,9.6,13.1,11.35,86,92,89,26,5.4375,1.0848608323,3.96,0.006,0.1413141585,0.1578830679,13.288533659,0,11.42,NA,NA,NA,NA,NA,NA,CrossValidation
