@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plant-sender
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plant-sender
+  template:
+    metadata:
+      labels:
+        app: plant-sender
+    spec:
+      containers:
+        - name: plant-sender
+          image: plant-sender:latest
+          env:
+            - name: PLANT_NAME
+              value: "plant1"
+            - name: RECEIVER_URL
+              value: "http://receiver-service:5000/receive"
+            - name: SEND_INTERVAL
+              value: "60"
+          volumeMounts:
+            - name: plant-data
+              mountPath: /app/data
+      volumes:
+        - name: plant-data
+          configMap:
+            name: plant-data-config

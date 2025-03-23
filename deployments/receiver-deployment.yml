@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: receiver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: receiver
+  template:
+    metadata:
+      labels:
+        app: receiver
+    spec:
+      containers:
+        - name: receiver
+          image: plant-receiver:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: MONGODB_URI
+              value: mongodb://mongodb-service:27017/
+            - name: GENOMIC_DATA_PATH
+              value: /app/data/genomic_data.tab
+          volumeMounts:
+            - name: genomic-data
+              mountPath: /app/data
+      volumes:
+        - name: genomic-data
+          configMap:
+            name: genomic-data-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: receiver-service
+spec:
+  selector:
+    app: receiver
+  ports:
+    - port: 5000
+      targetPort: 5000
+  type: ClusterIP
