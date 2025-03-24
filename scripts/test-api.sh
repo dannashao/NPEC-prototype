@@ -56,4 +56,7 @@ echo -e "\nVerifying data in MongoDB..."
 POD_NAME=$(kubectl get pod -l app=mongodb -o jsonpath='{.items[0].metadata.name}')
 kubectl exec $POD_NAME -- mongosh --eval 'use plant_data; db.plant_data.find().sort({timestamp:-1}).limit(2).pretty()'
 
+echo -e "\nTesting MongoDB Express access..."
+curl -I -u admin:pass http://plant-data.local/mongo-express/
+
 echo -e "\nTest complete!" 

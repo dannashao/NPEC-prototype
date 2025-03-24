@@ -6,11 +6,19 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/use-regex: "true"
 spec:
   rules:
     - host: plant-data.local
       http:
         paths:
+          - path: /mongo-express
+            pathType: Prefix
+            backend:
+              service:
+                name: mongo-express-service
+                port:
+                  number: 8081
           - path: /receive_data
             pathType: Prefix
             backend:

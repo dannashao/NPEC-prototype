@@ -142,6 +142,12 @@ wait_for_pod "mongodb" 120
 echo "Waiting for MongoDB to initialize..."
 sleep 20
 
+# Deploy MongoDB Express
+echo "Deploying MongoDB Express..."
+kubectl apply -f deployments/mongo-express-deployment.yml
+check_status "Failed to apply MongoDB Express deployment"
+wait_for_pod "mongo-express" 60
+
 # 6. Deploy receiver
 echo "Deploying receiver..."
 kubectl apply -f deployments/receiver-deployment.yml
@@ -167,7 +173,7 @@ done
 # Wait for sender pod to be ready
 wait_for_pod "plant-sender" 60
 
-# 8. Apply ingress last
+# Apply ingress configuration
 echo "Applying ingress configuration..."
 kubectl apply -f deployments/ingress.yml
 check_status "Failed to apply ingress configuration"
