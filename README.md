@@ -1,124 +1,109 @@
-# Plant Data Flow Simulation
+# Plant Monitoring System
 
-This project simulates a data flow system where plant data (images and sensor readings) are periodically sent from multiple plant sources to a central receiver that stores the data in MongoDB.
+A Kubernetes-based system for monitoring plant sensor data and images, with genomic data integration.
 
-## Project Structure
+## System Architecture
 
-```
-.
-├── data/                    # Data directory
-│   ├── plant1/             # Plant 1 data
-│   │   ├── images/         # Plant 1 images
-│   │   └── sensor_data.csv # Plant 1 sensor data
-│   ├── plant2/             # Plant 2 data
-│   │   ├── images/         # Plant 2 images
-│   │   └── sensor_data.csv # Plant 2 sensor data
-│   └── genomic_data.json    # Genomic data for plants
-├── docker/                 # Docker configurations
-│   ├── plant-sender/       # Plant data sender service (sender.py)
-│   └── receiver/          # Data receiver service
-├── deployments/           # Kubernetes deployment files
-└── scripts/              # Utility scripts
-```
+The system consists of the following components:
+- **Plant Sender**: Sends sensor data and plant images
+- **Receiver**: REST API service that processes incoming data
+- **MongoDB**: Database for storing sensor data, images, and genomic information
 
 ## Prerequisites
 
 - Docker
-- Kind (Kubernetes in Docker)
+- Kubernetes (kind or minikube)
 - kubectl
-- Tailscale (for external access)
 
-## Setup
+## Quick Start
 
-1. Start Kind cluster and enable Ingress:
-   ```bash
-   chmod +x scripts/start.sh
-   ./scripts/start.sh
-   ```
-   This will:
-   - Create a Kind cluster using the provided `kind-config.yaml`
-   - Configure port mappings (80/443) for external access
-   - Enable the Ingress controller
-   - Set up required host entries
-
-2. Build Docker images:
-   ```bash
-   # Build plant sender
-   docker build -t plant-sender:latest docker/plant-sender/
-   
-   # Build receiver
-   docker build -t plant-receiver:latest docker/receiver/
-   ```
-
-3. Load images into Kind cluster:
-   ```bash
-   kind load docker-image plant-sender:latest --name plant-cluster
-   kind load docker-image plant-receiver:latest --name plant-cluster
-   ```
-
-4. Deploy the application:
-   ```bash
-   kubectl apply -f deployments/
-   ```
-
-## Usage
-
-### Scaling Plant Senders
-
-To add more plant senders, you can scale the deployment:
+1. Clone the repository:
 ```bash
-kubectl scale deployment plant-sender --replicas=2
+git clone <repository-url>
+cd plant-monitoring-system
 ```
 
-### Accessing the Application
+2. Setup the cluster:
+```bash
+./scripts/setup.sh
+```
 
-1. MongoDB Web Interface (Mongo Express):
-   - URL: http://plant-data.local/mongo-express
-   - Access MongoDB data through the web interface
+3. Deploy the system:
+```bash
+./scripts/deploy.sh
+```
 
-2. Receiver API:
-   - Base URL: http://plant-data.local/receiver
-   - Endpoint: POST /receive
+## Data Model
 
-### Monitoring
+### Plant Identification
+The system uses a two-level identification system:
+- `plant_name`: Identifies individual plants (e.g., "plant1", "plant2")
+- `gene_variety`: Links plants to their genetic variety (e.g., "11430")
 
-- Check pod status:
-  ```bash
-  kubectl get pods
-  ```
-- View logs:
-  ```bash
-  kubectl logs -f deployment/plant-sender
-  kubectl logs -f deployment/receiver
-  ```
+### Data Components
+Each plant entry contains:
+- Plant Name and Gene Variety
+- Sensor Data (temperature, humidity, light)
+- Images (optional)
+- Genomic Data (linked via Gene Variety)
 
-## Features
+## Configuration
 
-- Scalable plant data senders
-- Automatic error injection (10% chance)
-- MongoDB storage with persistent volume
-- Genomic data linking
-- Web interface for data visualization
-- External access via Kind Ingress and Tailscale
+### Environment Variables
 
-## Data Flow
+Plant Sender:
+- `PLANT_NAME`: Name of the plant (default: "plant1")
+- `GENE_VARIETY`: Genetic variety ID (default: "11430")
+- `RECEIVER_URL`: URL of the receiver service
 
-1. Plant senders periodically send (in queue):
-   - One image from the plant's image directory
-   - One row from the plant's sensor data CSV
-   - 10% chance of sending blank data to simulate errors
+Receiver:
+- `MONGODB_URI`: MongoDB connection string
+- `GENOMIC_DATA_PATH`: Path to genomic data file
 
-2. Receiver service:
-   - Captures incoming data
-   - Stores images in MongoDB GridFS
-   - Stores sensor data in MongoDB collections
-   - Links data with genomic information
-   - Logs any errors in data reception or processing
+## API Endpoints
+
+- `POST /receive_data`: Receives plant data and images
+- `GET /health`: Health check endpoint
+
+## Monitoring
+
+Common monitoring commands:
+```bash
+# View system status
+kubectl get pods
+
+# Check component logs
+kubectl logs -l app=plant-sender
+kubectl logs -l app=receiver
+
+# View services
+kubectl get services
+```
+
+## Troubleshooting
+
+If you encounter issues:
+1. Check pod status: `kubectl get pods`
+2. View application logs: `kubectl logs -l app=<component-name>`
+3. Ensure all prerequisites are installed
+4. Verify network connectivity: `kubectl get ingress`
 
 ## Cleanup
 
-To clean up the deployment:
+Remove all resources:
 ```bash
-kubectl delete -f deployments/
 kind delete cluster --name plant-cluster
 ```
+```
+
+Key changes made:
+1. Removed project structure section (as it's self-explanatory from the repository)
+2. Consolidated data structure sections into "Data Model"
+3. Removed duplicate monitoring and configuration sections
+4. Simplified the API endpoints section
+5. Removed redundant setup and deployment instructions that are in the scripts
+6. Made troubleshooting more concise with direct commands
+7. Removed features section as they're covered in the architecture
+8. Removed data flow section as it's implementation detail
+
+Would you like me to make any other adjustments to this format?

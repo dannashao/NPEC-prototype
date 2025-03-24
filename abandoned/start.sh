@@ -1,15 +1,8 @@
 #!/bin/bash
 
+
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-# Check and stop services using port 80/443
-echo "Checking for services using ports 80/443..."
-if [ "$(lsof -i:80 -t)" ]; then
-    echo "Port 80 is in use. Please stop the service using it first."
-    echo "You can try: sudo lsof -i:80 to see which service it is"
-    exit 1
-fi
 
 
 # Create Kind cluster if it doesn't exist
@@ -28,18 +21,33 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main
 
 # Wait for Ingress controller to be ready
 echo "Waiting for Ingress controller to be ready..."
-kubectl wait --namespace ingress-nginx \
-  --for=condition=ready pod \
-  --selector=app.kubernetes.io/component=controller \
-  --timeout=120s
+echo "This might take a few minutes..."
+for i in {1..5}; do
+    if kubectl wait --namespace ingress-nginx \
+        --for=condition=ready pod \
+        --selector=app.kubernetes.io/component=controller \
+        --timeout=300s; then
+        break
+    fi
+    echo "Attempt $i failed, retrying..."
+    if [ $i -eq 5 ]; then
+        echo "Warning: Ingress controller didn't become ready in time, but continuing..."
+    fi
+    sleep 10
+done
 
 # Get cluster IP
 CLUSTER_IP=$(docker container inspect plant-cluster-control-plane --format '{{ .NetworkSettings.Networks.kind.IPAddress }}')
+if [ -z "$CLUSTER_IP" ]; then
+    echo "Error: Could not get cluster IP"
+    exit 1
+fi
 echo "Cluster IP: $CLUSTER_IP"
 
 # Add host entries (requires sudo)
 echo "Adding host entries..."
 echo "$CLUSTER_IP plant-data.local" | sudo tee -a /etc/hosts
+
 
 echo "Kind cluster is ready with Ingress enabled!"
 echo "You can now deploy your applications using kubectl apply -f deployments/"

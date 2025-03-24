@@ -3,20 +3,29 @@ kind: Ingress
 metadata:
   name: plant-data-ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
 spec:
   rules:
     - host: plant-data.local
       http:
         paths:
-          - path: /mongo-express
+          - path: /receive_data
             pathType: Prefix
             backend:
               service:
-                name: mongo-express-service
+                name: receiver-service
                 port:
-                  number: 8081
-          - path: /receiver
+                  number: 5000
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: receiver-service
+                port:
+                  number: 5000
+          - path: /
             pathType: Prefix
             backend:
               service:

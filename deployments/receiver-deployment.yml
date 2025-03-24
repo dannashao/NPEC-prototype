@@ -14,21 +14,34 @@ spec:
     spec:
       containers:
         - name: receiver
-          image: plant-receiver:latest
+          image: receiver:latest
+          imagePullPolicy: Never
           ports:
             - containerPort: 5000
           env:
             - name: MONGODB_URI
-              value: mongodb://mongodb-service:27017/
+              value: "mongodb://mongodb-service:27017/plant_data"
+            - name: FLASK_APP
+              value: "app.py"
+            - name: FLASK_ENV
+              value: "production"
+            - name: FLASK_RUN_HOST
+              value: "0.0.0.0"
+            - name: FLASK_RUN_PORT
+              value: "5000"
             - name: GENOMIC_DATA_PATH
-              value: /app/data/genomic_data.tab
+              value: "/app/data/genomic_data"
           volumeMounts:
             - name: genomic-data
-              mountPath: /app/data
+              mountPath: "/app/data/genomic_data"
+              subPath: genomic_data
       volumes:
         - name: genomic-data
           configMap:
-            name: genomic-data-config
+            name: genomic-data
+            items:
+              - key: genomic_data
+                path: genomic_data
 ---
 apiVersion: v1
 kind: Service
