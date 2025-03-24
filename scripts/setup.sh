@@ -20,8 +20,45 @@ docker network prune -f
 echo "Waiting for cleanup..."
 sleep 10
 
+echo "Creating temporary kind config..."
+sed "s|\${PWD}|$PWD|g" scripts/kind-config.yaml > /tmp/kind-config.yaml
+
+# Function to check if data directory exists
+check_data_directory() {
+    # Read the hostPath from temporary kind config
+    HOST_PATH=$(grep "hostPath:" /tmp/kind-config.yaml | sed 's/.*hostPath: //')
+
+    if [ ! -d "$HOST_PATH" ]; then
+        echo "Error: Data directory not found at $HOST_PATH"
+        echo "Please create the data directory in the project root"
+        rm /tmp/kind-config.yaml
+        exit 1
+    fi
+
+    
+    # Check for required subdirectories
+    if [ ! -d "$HOST_PATH/plant1" ] || [ ! -d "$HOST_PATH/plant2" ]; then
+        echo "Warning: Missing plant directories in $HOST_PATH"
+        echo "Expected structure:"
+        echo "  $HOST_PATH/"
+        echo "  ├── plant1/"
+        echo "  └── plant2/"
+    fi
+    
+    # Check for genomic data
+    if [ ! -f "$HOST_PATH/genomic_data.json" ]; then
+        echo "Warning: genomic_data.json not found in $HOST_PATH"
+    fi
+}
+
+echo "Checking data directory configuration..."
+check_data_directory
+
 echo "🚀 Creating new Kind cluster with port mappings..."
-kind create cluster --name plant-cluster --config scripts/kind-config.yaml
+kind create cluster --name plant-cluster --config /tmp/kind-config.yaml
+
+# Clean up temporary config
+rm /tmp/kind-config.yaml
 
 # Verify cluster creation
 echo "Verifying cluster creation..."

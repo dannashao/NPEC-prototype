@@ -12,22 +12,6 @@ spec:
       labels:
         app: plant-sender
     spec:
-      initContainers:
-      - name: setup-images
-        image: busybox:1.36
-        command: ['sh', '-c']
-        args:
-        - |
-          echo "Setting up images..."
-          mkdir -p /app/images/plant1
-          echo "Created directory structure"
-          echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=" | base64 -d > /app/images/plant1/sample1.png
-          echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=" | base64 -d > /app/images/plant1/sample2.png
-          echo "Created sample images"
-          ls -la /app/images/plant1/
-        volumeMounts:
-        - name: image-storage
-          mountPath: /app/images
       containers:
       - name: plant-sender
         image: plant-sender:latest
@@ -42,14 +26,10 @@ spec:
           - name: SEND_INTERVAL
             value: "10"
         volumeMounts:
-          - name: plant-data
-            mountPath: /app/data
-          - name: image-storage
-            mountPath: /app/images
+          - name: actual-images
+            mountPath: /app/data  # Keep only this mount
       volumes:
-        - name: plant-data
-          configMap:
-            name: plant-data
-        - name: image-storage
-          persistentVolumeClaim:
-            claimName: image-storage-pvc
+        - name: actual-images
+          hostPath:
+            path: /data  # This is mounted from kind cluster
+            type: Directory
