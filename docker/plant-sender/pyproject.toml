@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plant-sender"
+version = "0.1.0"
+description = "Plant data sender service"
+requires-python = ">=3.9"
+dependencies = [
+    "pandas",
+    "requests",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==7.4.4",
+    "pytest-cov==4.1.0",
+] 

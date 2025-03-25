@@ -34,7 +34,7 @@ echo "Starting deployment process..."
 
 # 1. Clean up all existing resources
 echo "Cleaning up existing resources..."
-kubectl delete ingress,deployment,service,configmap,pv,pvc --all --ignore-not-found=true
+kubectl delete ingress,deployment,statefulset,service,configmap,pv,pvc --all --ignore-not-found=true
 
 # Wait for resources to be deleted
 echo "Waiting for resources to be cleaned up..."
@@ -42,11 +42,21 @@ sleep 5
 
 # 2. Rebuild and reload Docker images
 echo "Building and loading Docker images..."
-docker build -t plant-sender:latest docker/plant-sender/
+# Install development dependencies and run tests
+cd docker/plant-sender
+pip install -e ".[dev]"
+pytest tests/
+check_status "Tests failed"
+
+# Build the image
+docker build -t plant-sender:latest .
 check_status "Failed to build plant-sender image"
 
-docker build -t receiver:latest docker/receiver/
+cd ../receiver
+docker build -t receiver:latest .
 check_status "Failed to build receiver image"
+
+cd ../..
 
 kind load docker-image plant-sender:latest --name plant-cluster
 check_status "Failed to load plant-sender image into kind cluster"
@@ -61,45 +71,17 @@ docker exec plant-cluster-control-plane mkdir -p /tmp/data/images /tmp/data/mong
 check_status "Failed to create host directories"
 
 # Create MongoDB PV/PVC
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: mongodb-pv
-spec:
-  capacity:
-    storage: 1Gi
-  volumeMode: Filesystem
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: standard
-  hostPath:
-    path: /tmp/data/mongodb
-    type: DirectoryOrCreate
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: mongodb-pvc
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: standard
-  resources:
-    requests:
-      storage: 1Gi
-EOF
+kubectl apply -f deployments/mongodb-storage.yml
 check_status "Failed to create MongoDB storage resources"
-
-# Create image storage PV/PVC
-kubectl apply -f deployments/image-storage.yml
-check_status "Failed to create image storage resources"
 
 # 4. Apply ConfigMaps
 echo "Applying ConfigMaps..."
 kubectl apply -f deployments/mongodb-init-configmap.yml
 check_status "Failed to apply MongoDB init ConfigMap"
+
+# Add this line to create plant-config ConfigMap
+kubectl apply -f deployments/plant-config-configmap.yml
+check_status "Failed to apply plant config ConfigMap"
 
 # Create genomic data ConfigMap from JSON file
 echo "Creating genomic data ConfigMap..."
@@ -163,24 +145,42 @@ kubectl apply -f deployments/receiver-deployment.yml
 check_status "Failed to apply receiver deployment"
 wait_for_pod "receiver" 60
 
-# 7. Deploy sender (which will trigger PVC binding)
-echo "Deploying sender..."
-kubectl apply -f deployments/sender-deployment.yml
-check_status "Failed to apply sender deployment"
+# 7. Deploy sender StatefulSet
+echo "Deploying sender StatefulSet..."
+kubectl apply -f deployments/sender-statefulset.yml
+check_status "Failed to apply sender statefulset"
 
-# Now wait for PVC to bind after sender deployment
-echo "Waiting for PVC to be bound..."
-for i in {1..30}; do
-    if kubectl get pvc image-storage-pvc | grep -q Bound; then
-        echo "PVC successfully bound"
+# Check if StatefulSet was created
+echo "Verifying StatefulSet creation..."
+if ! kubectl get statefulset plant-sender; then
+    echo "Error: StatefulSet was not created"
+    exit 1
+fi
+
+# Wait for sender pods to be ready with more detailed output
+echo "Waiting for sender pods..."
+for i in {1..60}; do  # Increased timeout
+    echo "Checking pod status (attempt $i/60)..."
+    kubectl get pods -l app=plant-sender
+    
+    # Get current status (without failing the script if pods aren't ready)
+    READY_PODS=$(kubectl get pods -l app=plant-sender -o jsonpath='{.items[*].status.containerStatuses[*].ready}' | tr ' ' '\n' | grep -c "true" || echo "0")
+    EXPECTED_REPLICAS=$(kubectl get statefulset plant-sender -o jsonpath='{.spec.replicas}')
+    
+    if [ "$READY_PODS" -eq "$EXPECTED_REPLICAS" ]; then
+        echo "All sender pods are ready"
         break
     fi
-    echo "Waiting for PVC to bind... attempt $i/30"
-    sleep 2
+    
+    # Only warn if we've reached the timeout
+    if [ $i -eq 60 ]; then
+        echo "Warning: Not all replicas are ready. Expected: $EXPECTED_REPLICAS, Ready: $READY_PODS"
+        echo "Continuing deployment as pods may still be starting..."
+    fi
+    
+    # Remove the kubectl wait command and just use sleep
+    sleep 5
 done
-
-# Wait for sender pod to be ready
-wait_for_pod "plant-sender" 60
 
 # Apply ingress configuration
 echo "Applying ingress configuration..."

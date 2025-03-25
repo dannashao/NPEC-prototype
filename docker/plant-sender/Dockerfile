@@ -7,9 +7,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir numpy==1.23.5 && \
     pip install --no-cache-dir -r requirements.txt
 
-COPY sender.py .
+COPY src/plant_sender ./plant_sender
+COPY src/plant_sender/main.py .
 
 ENV PLANT_NAME=plant1
 
-CMD ["python", "sender.py"]
+CMD ["python", "main.py"]
 
