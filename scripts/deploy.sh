@@ -101,8 +101,17 @@ echo "Applying ConfigMaps..."
 kubectl apply -f deployments/mongodb-init-configmap.yml
 check_status "Failed to apply MongoDB init ConfigMap"
 
-kubectl apply -f deployments/genomic-data-configmap.yml
-check_status "Failed to apply genomic data ConfigMap"
+# Create genomic data ConfigMap from JSON file
+echo "Creating genomic data ConfigMap..."
+kubectl create configmap genomic-data --from-file=genomic_data=data/genomic_data.json
+check_status "Failed to create genomic data ConfigMap"
+
+# Verify genomic data ConfigMap
+echo "Verifying genomic data ConfigMap..."
+if ! kubectl get configmap genomic-data -o jsonpath='{.data.genomic_data}' | jq '.[].VarietyID'; then
+    echo "Error: Failed to verify genomic data ConfigMap"
+    exit 1
+fi
 
 # Create plant-data ConfigMap
 cat <<EOF | kubectl apply -f -

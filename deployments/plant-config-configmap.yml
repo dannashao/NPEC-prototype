@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plant-config
+data:
+  plant-configs: |
+    {
+      "plant1": {
+        "gene_variety": "11430",
+        "description": "First test plant"
+      },
+      "plant2": {
+        "gene_variety": "A3",
+        "description": "Second test plant"
+      }
+    } 

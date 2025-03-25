@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: plant-sender
+spec:
+  serviceName: "plant-sender"
+  replicas: 2  # Adjust based on number of plants
+  selector:
+    matchLabels:
+      app: plant-sender
+  template:
+    metadata:
+      labels:
+        app: plant-sender
+    spec:
+      containers:
+      - name: sender
+        image: plant-sender:latest
+        imagePullPolicy: Never
+        env:
+        - name: PLANT_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: RECEIVER_URL
+          value: "http://receiver-service:5000/receive_data"
+        volumeMounts:
+        - name: actual-images
+          mountPath: /app/data
+        - name: plant-config
+          mountPath: /app/config
+      volumes:
+      - name: actual-images
+        hostPath:
+          path: /data
+          type: Directory
+      - name: plant-config
+        configMap:
+          name: plant-config 

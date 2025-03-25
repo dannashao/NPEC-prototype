@@ -11,8 +11,25 @@ It simulates random errors by 10% chance adding an empty row.
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-PLANT_NAME = os.getenv("PLANT_NAME", "plant1")
-GENE_VARIETY = os.getenv("GENE_VARIETY", "11430")  # This should match VarietyID in genomic data
+# Update PLANT_NAME and GENE_VARIETY handling
+pod_name = os.getenv("PLANT_NAME", "plant-sender-0")
+PLANT_NAME = f"plant{int(pod_name.split('-')[-1]) + 1}"
+
+# Read plant configurations
+try:
+    with open("/app/config/plant-configs", "r") as f:
+        plant_configs = json.load(f)
+    
+    if PLANT_NAME not in plant_configs:
+        logger.error(f"No configuration found for {PLANT_NAME}")
+        exit(1)
+        
+    GENE_VARIETY = plant_configs[PLANT_NAME]["gene_variety"]
+    logger.info(f"Loaded configuration for {PLANT_NAME}: gene_variety={GENE_VARIETY}")
+except Exception as e:
+    logger.error(f"Error loading plant configuration: {e}")
+    exit(1)
+
 RECEIVER_URL = os.getenv("RECEIVER_URL", "http://receiver-service:5000/receive_data")
 
 # Update paths for both sensor data and images
