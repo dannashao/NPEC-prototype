@@ -1,6 +1,22 @@
 #!/bin/bash
 set -e
 
+# Display warning message
+echo -e "\033[1;33mWARNING: This script will delete all existing resources.\033[0m"
+echo -e "\033[1;33mUse it only for the first time deployment or system reset.\033[0m"
+echo -e "This will:"
+echo -e "  1. Delete all existing deployments, services, and configs"
+echo -e "  2. Rebuild and reload Docker images"
+echo -e "  3. Create new storage and configurations"
+echo -e "  4. Deploy all components from scratch\n"
+
+# Prompt for confirmation
+read -p "Do you want to proceed? [y/N] " response
+if [[ ! "$response" =~ ^[yY]$ ]]; then
+    echo "Deployment cancelled."
+    exit 0
+fi
+
 # Verify cluster exists and is ready
 if ! kind get clusters | grep -q "^plant-cluster$"; then
     echo "Error: Cluster 'plant-cluster' not found. Please run setup.sh first."

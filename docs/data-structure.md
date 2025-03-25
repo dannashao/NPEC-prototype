@@ -15,19 +15,20 @@ Each plant entry contains:
 - Genomic Data (linked via Gene Variety)
 
 ## Directory Structure
-data/
-├── plant1/
-│ ├── images/
-│ │ ├── image1.png
-│ │ └── ...
-│ └── sensor_data.csv
-├── plant2/
-│ ├── images/
-│ │ ├── image1.png
-│ │ └── ...
-│ └── sensor_data.csv
-└── genomic_data.json
-
+   ```
+    data/
+    ├── plant1/
+    │ ├── images/
+    │ │ ├── image1.png
+    │ │ └── ...
+    │ └── sensor_data.csv
+    ├── plant2/
+    │ ├── images/
+    │ │ ├── image1.png
+    │ │ └── ...
+    │ └── sensor_data.csv
+    └── genomic_data.json
+   ```
 
 ## Data Organization
 - Each plant has its own directory (`plant1`, `plant2`, etc.)

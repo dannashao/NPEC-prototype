@@ -38,6 +38,7 @@ cd plant-monitoring-system
 ```
 
 4. Deploy the system:
+**WARNING: This script deletes all existing resources. Use it only for the first time deployment or system reset.**
 ```bash
 ./scripts/deploy.sh
 ```
@@ -96,9 +97,7 @@ kind delete cluster --name plant-cluster
 2. **Data Organization**:
    - Each plant has its own directory (`plant1`, `plant2`, etc.)
    - Plant images are stored in the `images` subdirectory
-  │   └── sensor_data.csv
-   └── genomic_data.json
-   ```
+
 
 ## StatefulSet Configuration
 
