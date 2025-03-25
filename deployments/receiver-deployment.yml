@@ -35,6 +35,18 @@ spec:
             - name: genomic-data
               mountPath: "/app/data/genomic_data"
               subPath: genomic_data
+          readinessProbe:
+            httpGet:
+              path: /validate/system
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 30
       volumes:
         - name: genomic-data
           configMap:

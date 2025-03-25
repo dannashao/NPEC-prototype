@@ -56,35 +56,49 @@ def main():
     # Main processing loop
     try:
         sensor_data = pd.read_csv(sensor_file)
-        if not processor.validate_sensor_data(sensor_data):
-            return
-
+        is_valid, missing_columns = processor.validate_sensor_data(sensor_data)
+        if not is_valid:
+            logger.warning(f"Invalid sensor data structure. Missing columns: {missing_columns}")
+            # Continue anyway, will send partial data
+        
         image_files = sorted(glob(f"{image_dir}/*.png"))
         
         while True:
             for i in range(len(sensor_data)):
-                if random.random() < 0.1:
-                    sensor_row = {}
-                else:
-                    sensor_row = processor.prepare_sensor_row(sensor_data.iloc[i])
+                try:
+                    if random.random() < 0.1:
+                        sensor_row = {}
+                    else:
+                        # Handle NaN values gracefully
+                        row = sensor_data.iloc[i]
+                        if row.isna().any():
+                            logger.warning(f"Row {i} contains NaN values: {row}")
+                        sensor_row = processor.prepare_sensor_row(row)
 
-                form_data = processor.prepare_form_data(sensor_row)
-                
-                # Handle image upload
-                files = {}
-                if image_files and i < len(image_files):
-                    try:
-                        with open(image_files[i], 'rb') as f:
-                            files['image'] = (os.path.basename(image_files[i]), f, 'image/png')
-                            response = requests.post(receiver_data_url, data=form_data, files=files, timeout=10)
-                            logger.info(f"Response status: {response.status_code}")
-                    except Exception as e:
-                        logger.error(f"Failed to send data: {e}")
+                    form_data = processor.prepare_form_data(sensor_row)
+                    
+                    # Handle image upload
+                    files = {}
+                    if image_files and i < len(image_files):
+                        try:
+                            with open(image_files[i], 'rb') as f:
+                                files['image'] = (os.path.basename(image_files[i]), f, 'image/png')
+                                response = requests.post(receiver_data_url, data=form_data, files=files, timeout=10)
+                                logger.info(f"Response status: {response.status_code}")
+                                if response.status_code != 200:
+                                    logger.warning(f"Receiver response: {response.json()}")
+                        except Exception as e:
+                            logger.error(f"Failed to send data: {e}")
+                            continue  # Continue with next row even if this one fails
 
-                time.sleep(10)
+                    time.sleep(10)
+                except Exception as e:
+                    logger.error(f"Error processing row {i}: {e}")
+                    continue  # Continue with next row even if this one fails
 
     except Exception as e:
-        logger.error(f"Error in main loop: {e}")
+        logger.error(f"Critical error in main loop: {e}")
+        return  # Only exit on critical errors (like file not found)
 
 if __name__ == "__main__":
     main()

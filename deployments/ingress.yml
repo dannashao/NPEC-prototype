@@ -40,3 +40,17 @@ spec:
                 name: receiver-service
                 port:
                   number: 5000
+          - path: /validate
+            pathType: Prefix
+            backend:
+              service:
+                name: receiver-service
+                port:
+                  number: 5000
+          - path: /validate/system
+            pathType: Prefix
+            backend:
+              service:
+                name: receiver-service
+                port:
+                  number: 5000
