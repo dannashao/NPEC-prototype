@@ -19,14 +19,14 @@ The system consists of the following components:
 ## Prerequisites
 
 - Docker
-- Kubernetes (kind or minikube)
+- Kubernetes (Kind)
 - kubectl
 
 ## Quick Start
 
 1. Clone the repository:
 ```bash
-git clone <https://github.com/dannashao/NPEC-prototype.git>
+git clone https://github.com/dannashao/NPEC-prototype.git
 cd plant-monitoring-system
 ```
 
@@ -78,94 +78,26 @@ Remove all resources:
 kind delete cluster --name plant-cluster
 ```
 
-## Data Structure
+## Troubleshooting
 
-1. **Data Directory Structure**:
-   ```
-   data/
-   ├── plant1/
-   │   ├── images/
-   │   │   ├── image1.png
-   │   │   └── ...
-   │   └── sensor_data.csv
-   ├── plant2/
-   │   ├── images/
-   │   │   ├── image1.png
-   │   │   └── ...
-   │   └── sensor_data.csv
-   └── genomic_data.json
-   ```
+If you encounter issues:
+1. Check pod status: `kubectl get pods`
+2. View application logs: `kubectl logs -l app=<component-name>`
+3. Ensure all prerequisites are installed
+4. Verify network connectivity: `kubectl get ingress`
+5. Check MongoDB Express access at `/mongo-express`
 
-2. **Data Organization**:
-   - Each plant has its own directory (`plant1`, `plant2`, etc.)
-   - Plant images are stored in the `images` subdirectory
+## Environment Variables
 
+Plant Sender:
+- `PLANT_NAME`: Name of the plant (default: "plant1")
+- `GENE_VARIETY`: Genetic variety ID (default: "11430")
+- `RECEIVER_URL`: URL of the receiver service
 
-## StatefulSet Configuration
+Receiver:
+- `MONGODB_URI`: MongoDB connection string
+- `GENOMIC_DATA_PATH`: Path to genomic data file
 
-The plant sender uses a StatefulSet to manage multiple plant monitoring instances:
-
-### Pod Naming Convention
-- Pods are named sequentially: `plant-sender-0`, `plant-sender-1`, etc.
-- Each pod automatically maps to a corresponding plant: 
-  - `plant-sender-0` → `plant1`
-  - `plant-sender-1` → `plant2`
-
-### Scaling Plants
-```bash
-# View current plant sender pods
-kubectl get pods -l app=plant-sender
-
-# Scale to monitor more plants
-kubectl scale statefulset plant-sender --replicas=3
-
-# Scale down if needed
-kubectl scale statefulset plant-sender --replicas=1
-```
-
-### Volume Mounts
-The StatefulSet configuration includes:
-- Plant data volume: `/app/data`
-- Configuration volume: `/app/config`
-
-### Environment Variables
-Each pod automatically gets:
-- `PLANT_NAME`: Set from pod name (e.g., "plant-sender-0")
-- `RECEIVER_URL`: Points to receiver service
-
-### Monitoring StatefulSet
-```bash
-# Check StatefulSet status
-kubectl get statefulset plant-sender
-
-# View individual pod logs
-kubectl logs plant-sender-0
-kubectl logs plant-sender-1
-
-# Check pod details
-kubectl describe pod plant-sender-0
-```
-
-### Troubleshooting StatefulSet
-1. Ensure data directories exist for each plant
-2. Verify ConfigMaps are properly mounted
-3. Check individual pod logs for specific plant issues
-4. Verify pod naming matches plant data structure
-
-## Storage Configuration
-
-The system uses three types of persistent storage:
-
-1. MongoDB Storage (`mongodb-storage.yml`):
-   - Stores the MongoDB database
-   - 1GB capacity
-   - ReadWriteOnce access mode
-
-2. Image Storage (`image-storage.yml`):
-   - Stores plant images
-   - Mounted to both sender and receiver
-
-3. ConfigMap Storage:
-   - Genomic data
-   - Plant configurations
-   - Sensor data templates
+MongoDB Express:
+- `ME_CONFIG_BASICAUTH_USERNAME`: Admin username (default: "admin")
+- `ME_CONFIG_BASICAUTH_PASSWORD`: Admin password (default: "pass") 
