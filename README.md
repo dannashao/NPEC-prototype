@@ -26,7 +26,7 @@ The system consists of the following components:
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone <https://github.com/dannashao/NPEC-prototype.git>
 cd plant-monitoring-system
 ```
 
@@ -38,7 +38,9 @@ cd plant-monitoring-system
 ```
 
 4. Deploy the system:
+
 **WARNING: This script deletes all existing resources. Use it only for the first time deployment or system reset.**
+
 ```bash
 ./scripts/deploy.sh
 ```
