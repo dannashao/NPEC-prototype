@@ -1,22 +1,23 @@
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install curl for debugging
+# Install system dependencies
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install dependencies
 COPY docker/web/requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the src directory
 COPY src /app/src
-# Copy the web app files
+
+# Copy web files
 COPY docker/web .
 
-# Add src to Python path
 ENV PYTHONPATH=/app
 
-EXPOSE 5001
+EXPOSE 80
 
-CMD ["python", "app.py"] 
+# Use Gunicorn to run the application
+CMD ["gunicorn", "--bind", "0.0.0.0:80", "--access-logfile", "-", "--error-logfile", "-", "app:app"] 

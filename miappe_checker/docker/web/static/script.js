@@ -323,9 +323,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Add form status
-        formData.status = Object.keys(unfinishedFields).length > 0 ? 'incomplete' : 'complete';
-        
         console.log('Form data collected:', formData);
         
         // Submit form data
@@ -346,11 +343,21 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(data => {
             console.log('Server data:', data);
-            if (!data.success) {
-                showNotification(data.errors.join('\n'), 'error');
+            if (data.error) {
+                showNotification(data.error, 'error');
             } else {
-                // Only show success notification, no error notification for incomplete forms
-                showNotification('Checklist saved successfully!', 'success');
+                // Show appropriate notification based on completion status
+                if (data.is_complete) {
+                    showNotification('Checklist saved successfully! All required fields are complete.', 'success');
+                } else {
+                    let message = 'Checklist saved successfully! Some fields are still incomplete:\n\n';
+                    if (data.incomplete_scopes && Array.isArray(data.incomplete_scopes)) {
+                        data.incomplete_scopes.forEach(scope => {
+                            message += `- ${scope}\n`;
+                        });
+                    }
+                    showNotification(message, 'warning');
+                }
             }
         })
         .catch(error => {

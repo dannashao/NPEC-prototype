@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: miappe-postgres-config
+data:
+  POSTGRES_DB: miappe
+  POSTGRES_USER: miappe_user
+  POSTGRES_PASSWORD: miappe_password
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: miappe-postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: miappe-postgres
+spec:
+  serviceName: miappe-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: miappe-postgres
+  template:
+    metadata:
+      labels:
+        app: miappe-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15
+        ports:
+        - containerPort: 5432
+        envFrom:
+        - configMapRef:
+            name: miappe-postgres-config
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: init-script
+          mountPath: /docker-entrypoint-initdb.d
+      volumes:
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: miappe-postgres-pvc
+      - name: init-script
+        configMap:
+          name: miappe-postgres-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: miappe-postgres
+spec:
+  selector:
+    app: miappe-postgres
+  ports:
+  - port: 5432
+    targetPort: 5432 

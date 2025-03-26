@@ -13,14 +13,25 @@ spec:
         app: miappe-checker
     spec:
       containers:
-      - name: miappe-checker
-        image: localhost:5001/miappe-checker:latest
+      - name: miappe-web
+        image: localhost:5001/miappe-checker-web:latest
         imagePullPolicy: Never
         ports:
-        - containerPort: 5001
+        - containerPort: 80
+        env:
+        - name: PORT
+          value: "80"
         volumeMounts:
         - name: miappe-data
           mountPath: /app/data
+      - name: miappe-backend
+        image: localhost:5001/miappe-checker-backend:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          value: postgresql://miappe_user:miappe_password@miappe-postgres:5432/miappe
       volumes:
       - name: miappe-data
         configMap:
@@ -34,5 +45,9 @@ spec:
   selector:
     app: miappe-checker
   ports:
-  - port: 5001
-    targetPort: 5001 
+  - name: web
+    port: 80
+    targetPort: 80
+  - name: backend
+    port: 8000
+    targetPort: 8000 
