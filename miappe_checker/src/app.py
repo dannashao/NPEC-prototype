@@ -27,6 +27,56 @@ def get_db_connection():
 def index():
     return render_template('index.html', schema=schema)
 
+@app.route('/miappe/check_existing', methods=['POST'])
+def check_existing():
+    try:
+        data = request.get_json()
+        if not data or 'mongo_db' not in data:
+            return jsonify({'error': 'No database name provided'}), 400
+
+        mongo_db = data['mongo_db']
+        app.logger.info(f"Checking existing records for database: {mongo_db}")
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            # Query for existing records for this database
+            cur.execute("""
+                SELECT id, data, is_complete, incomplete_scopes, created_at, updated_at
+                FROM miappe_checklists
+                WHERE data->>'mongo_db' = %s
+                ORDER BY updated_at DESC
+                LIMIT 1
+            """, (mongo_db,))
+            
+            record = cur.fetchone()
+            
+            if record:
+                return jsonify({
+                    'exists': True,
+                    'record': {
+                        'id': record[0],
+                        'data': record[1],
+                        'is_complete': record[2],
+                        'incomplete_scopes': record[3],
+                        'created_at': record[4].isoformat(),
+                        'updated_at': record[5].isoformat()
+                    }
+                }), 200
+            else:
+                return jsonify({'exists': False}), 200
+
+        except Exception as e:
+            app.logger.error(f"Database error: {str(e)}")
+            return jsonify({'error': f"Database error: {str(e)}"}), 500
+        finally:
+            cur.close()
+            conn.close()
+
+    except Exception as e:
+        app.logger.error(f"Error checking existing records: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/miappe/save_checklist', methods=['POST'])
 def save_checklist():
     try:
@@ -35,6 +85,14 @@ def save_checklist():
             return jsonify({'error': 'No data provided'}), 400
 
         app.logger.info(f"Received data: {data}")
+
+        # Get MongoDB database name from the URL parameters
+        mongo_db = request.args.get('mongo_db') or request.referrer.split('mongo_db=')[1].split('&')[0] if request.referrer and 'mongo_db=' in request.referrer else None
+        if not mongo_db:
+            return jsonify({'error': 'MongoDB database name not provided'}), 400
+
+        # Add mongo_db to the data
+        data['mongo_db'] = mongo_db
 
         # Validate fields and determine completion status
         missing_fields = []
@@ -70,21 +128,47 @@ def save_checklist():
         conn = get_db_connection()
         cur = conn.cursor()
         try:
-            # Insert into miappe_checklists table
+            # Check for existing record
             cur.execute("""
-                INSERT INTO miappe_checklists 
-                (data, is_complete, incomplete_scopes, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id
-            """, (
-                Json(data),
-                is_complete,
-                Json(incomplete_scopes),
-                datetime.utcnow(),
-                datetime.utcnow()
-            ))
+                SELECT id FROM miappe_checklists 
+                WHERE data->>'mongo_db' = %s
+                ORDER BY updated_at DESC
+                LIMIT 1
+            """, (mongo_db,))
             
-            checklist_id = cur.fetchone()[0]
+            existing_record = cur.fetchone()
+            
+            if existing_record:
+                # Update existing record
+                cur.execute("""
+                    UPDATE miappe_checklists 
+                    SET data = %s, is_complete = %s, incomplete_scopes = %s, updated_at = %s
+                    WHERE id = %s
+                    RETURNING id
+                """, (
+                    Json(data),
+                    is_complete,
+                    Json(incomplete_scopes),
+                    datetime.utcnow(),
+                    existing_record[0]
+                ))
+                checklist_id = existing_record[0]
+            else:
+                # Insert new record
+                cur.execute("""
+                    INSERT INTO miappe_checklists 
+                    (data, is_complete, incomplete_scopes, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    Json(data),
+                    is_complete,
+                    Json(incomplete_scopes),
+                    datetime.utcnow(),
+                    datetime.utcnow()
+                ))
+                checklist_id = cur.fetchone()[0]
+            
             conn.commit()
 
             response_data = {

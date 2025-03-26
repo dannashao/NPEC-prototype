@@ -17,6 +17,82 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     }
 
+    // Function to show custom popup
+    function showCustomPopup(message, buttons) {
+        return new Promise((resolve) => {
+            const popup = document.createElement('div');
+            popup.className = 'custom-popup';
+            popup.innerHTML = `
+                <div class="popup-content">
+                    <pre>${message}</pre>
+                    <div class="popup-buttons">
+                        ${buttons.map(btn => `<button class="popup-${btn.class}">${btn.text}</button>`).join('')}
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(popup);
+            
+            // Handle button clicks
+            buttons.forEach(btn => {
+                popup.querySelector(`.popup-${btn.class}`).addEventListener('click', () => {
+                    document.body.removeChild(popup);
+                    resolve(btn.value);
+                });
+            });
+        });
+    }
+
+    // Function to check for existing records
+    async function checkExistingRecords(mongoDb) {
+        try {
+            const response = await fetch('/miappe/check_existing', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ mongo_db: mongoDb })
+            });
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Error checking existing records:', error);
+            return { exists: false, error: error.message };
+        }
+    }
+
+    // Function to load existing record data
+    function loadExistingRecord(record) {
+        // Clear all existing values
+        document.querySelectorAll('textarea').forEach(textarea => {
+            textarea.value = '';
+            textarea.dispatchEvent(new Event('input'));
+        });
+
+        // Load the saved data
+        Object.entries(record.data).forEach(([scope, fields]) => {
+            Object.entries(fields).forEach(([field, value]) => {
+                const textarea = document.querySelector(`textarea[name="${scope}.${field}"]`);
+                if (textarea) {
+                    textarea.value = value;
+                    textarea.dispatchEvent(new Event('input'));
+                }
+            });
+        });
+
+        // Restore bindings if they exist
+        if (record.data.bindings) {
+            restoreBindings(record.data.bindings);
+        }
+
+        showNotification('Previous record loaded successfully', 'success');
+    }
+
     // Function to create a binding
     function createBinding(mongoField, scope, field, dropdown) {
         mongoField.classList.add('bound');
@@ -58,27 +134,58 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Function to restore bindings from localStorage
-    function restoreBindings() {
-        const bindings = JSON.parse(localStorage.getItem('miappeBindings') || '{}');
-        
+    // Function to restore bindings from data
+    function restoreBindings(bindings = null) {
+        // If no bindings provided, try to load from localStorage
+        if (!bindings) {
+            try {
+                const savedBindings = localStorage.getItem('miappeBindings');
+                if (savedBindings) {
+                    bindings = JSON.parse(savedBindings);
+                } else {
+                    return; // No bindings to restore
+                }
+            } catch (error) {
+                console.error('Error loading bindings from localStorage:', error);
+                return;
+            }
+        }
+
+        // Ensure bindings is an object
+        if (typeof bindings !== 'object' || bindings === null) {
+            console.error('Invalid bindings data:', bindings);
+            return;
+        }
+
         Object.entries(bindings).forEach(([field, mongoField]) => {
             const [scope, fieldName] = field.split('.');
             const textarea = document.querySelector(`textarea[name="${field}"]`);
-            const dropdown = textarea.closest('.form-group').querySelector('.mongo-field-dropdown');
-            const targetMongoField = document.querySelector(`.mongo-field[data-field="${mongoField}"]`);
-            
-            if (textarea && dropdown && targetMongoField) {
-                // Set dropdown value
-                dropdown.value = mongoField;
-                
-                // Set textarea value
-                textarea.value = mongoField;
-                textarea.dispatchEvent(new Event('input'));
-                
-                // Create binding
-                createBinding(targetMongoField, scope, fieldName, dropdown);
+            if (!textarea) {
+                console.warn(`Textarea not found for field: ${field}`);
+                return;
             }
+            
+            const dropdown = textarea.closest('.form-group')?.querySelector('.mongo-field-dropdown');
+            if (!dropdown) {
+                console.warn(`Dropdown not found for field: ${field}`);
+                return;
+            }
+            
+            const targetMongoField = document.querySelector(`.mongo-field[data-field="${mongoField}"]`);
+            if (!targetMongoField) {
+                console.warn(`MongoDB field not found: ${mongoField}`);
+                return;
+            }
+            
+            // Set dropdown value
+            dropdown.value = mongoField;
+            
+            // Set textarea value
+            textarea.value = mongoField;
+            textarea.dispatchEvent(new Event('input'));
+            
+            // Create binding
+            createBinding(targetMongoField, scope, fieldName, dropdown);
         });
     }
 
@@ -126,7 +233,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Restore bindings on page load
+    // Check for existing records when MongoDB database is selected
+    const mongoDbSelect = document.getElementById('mongo-db');
+    if (mongoDbSelect) {
+        mongoDbSelect.addEventListener('change', async function() {
+            const selectedDb = this.value;
+            if (selectedDb) {
+                const result = await checkExistingRecords(selectedDb);
+                if (result.exists) {
+                    const message = `A previous record exists for database "${selectedDb}"\n\n` +
+                        `Created: ${new Date(result.record.created_at).toLocaleString()}\n` +
+                        `Last Updated: ${new Date(result.record.updated_at).toLocaleString()}\n` +
+                        `Status: ${result.record.is_complete ? 'Complete' : 'Incomplete'}\n\n` +
+                        `Would you like to load this record?`;
+                    
+                    const action = await showCustomPopup(message, [
+                        { class: 'cancel', text: 'Cancel', value: 'cancel' },
+                        { class: 'confirm', text: 'Load Record', value: 'load' }
+                    ]);
+
+                    if (action === 'load') {
+                        loadExistingRecord(result.record);
+                    }
+                }
+            }
+        });
+    }
+
+    // Restore bindings from localStorage on page load
     restoreBindings();
 
     // Auto-expand textareas
@@ -231,6 +365,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const unfinishedFields = getUnfinishedMandatoryFields();
         console.log('Unfinished fields:', unfinishedFields);
         
+        // Get MongoDB database name
+        const mongoDbSelect = document.getElementById('mongo-db');
+        if (!mongoDbSelect || !mongoDbSelect.value) {
+            showNotification('Please select a MongoDB database', 'error');
+            return;
+        }
+        const mongoDb = mongoDbSelect.value;
+        console.log('Selected MongoDB database:', mongoDb);
+        
         // If there are unfinished fields, show popup
         if (Object.keys(unfinishedFields).length > 0) {
             console.log('Showing popup for unfinished fields');
@@ -322,6 +465,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 formData[scope][field] = value;
             }
         });
+
+        // Add MongoDB database name to form data
+        formData.mongo_db = mongoDb;
         
         console.log('Form data collected:', formData);
         
