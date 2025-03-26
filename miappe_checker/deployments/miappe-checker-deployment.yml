@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: miappe-checker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: miappe-checker
+  template:
+    metadata:
+      labels:
+        app: miappe-checker
+    spec:
+      containers:
+      - name: miappe-checker
+        image: localhost:5001/miappe-checker:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5001
+        volumeMounts:
+        - name: miappe-data
+          mountPath: /app/data
+      volumes:
+      - name: miappe-data
+        configMap:
+          name: miappe-schema-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: miappe-checker-service
+spec:
+  selector:
+    app: miappe-checker
+  ports:
+  - port: 5001
+    targetPort: 5001 
