@@ -2,12 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy requirements first to leverage Docker cache
-COPY requirements.txt .
+# Copy requirements and install dependencies
+COPY docker/backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
-COPY . .
+# Copy the src directory
+COPY src /app/src
+
+# Copy backend files
+COPY docker/backend .
 
 # Expose the port the app runs on
 EXPOSE 8000

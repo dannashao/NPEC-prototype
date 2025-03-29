@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: miappe-postgres-config
+data:
+  POSTGRES_DB: miappe
+  POSTGRES_USER: miappe_user
+  POSTGRES_PASSWORD: miappe123 

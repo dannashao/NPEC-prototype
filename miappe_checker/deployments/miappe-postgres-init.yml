@@ -4,125 +4,193 @@ metadata:
   name: miappe-postgres-init
 data:
   init.sql: |
-    -- Create tables for each scope
-    CREATE TABLE investigation (
-        id SERIAL PRIMARY KEY,
-        investigation_title TEXT NOT NULL,
-        miappe_version TEXT NOT NULL,
+    -- Enable UUID extension
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    
+    -- Create investigation table (top-level concept)
+    CREATE TABLE INVESTIGATION (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        INVESTIGATION_ID TEXT NOT NULL,
+        TITLE TEXT,
+        DESCRIPTION TEXT,
+        SUBMISSION_DATE TIMESTAMP WITH TIME ZONE,
+        PUBLIC_RELEASE_DATE TIMESTAMP WITH TIME ZONE,
+        LICENSE TEXT CHECK (LICENSE LIKE 'CC BY%' OR LICENSE LIKE 'CC BY-SA%' OR LICENSE LIKE 'CC BY-NC%' OR LICENSE LIKE 'CC BY-NC-SA%' OR LICENSE = 'Unreported'),
+        MIAPPE_VERSION TEXT,
+        ASSOCIATED_PUBLICATION TEXT[],
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(INVESTIGATION_ID)
+    );
+
+    -- Create study table
+    CREATE TABLE STUDY (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        INVESTIGATION_ID UUID NOT NULL REFERENCES INVESTIGATION(id) ON DELETE CASCADE,
+        STUDY_ID TEXT NOT NULL,
+        STUDY_TITLE TEXT,
+        STUDY_DESCRIPTION TEXT,
+        STUDY_START_DATE TIMESTAMP WITH TIME ZONE,
+        STUDY_END_DATE TIMESTAMP WITH TIME ZONE,
+        CONTACT_INSTITUTION TEXT,
+        LOCATION_COUNTRY TEXT CHECK (char_length(LOCATION_COUNTRY) = 2),
+        SITE_NAME TEXT,
+        LOCATION_LATITUDE DECIMAL,
+        LOCATION_LONGITUDE DECIMAL,
+        LOCATION_ALTITUDE DECIMAL,
+        EXPERIMENTAL_DESIGN_DESCRIPTION TEXT,
+        EXPERIMENTAL_DESIGN_TYPE TEXT,
+        OBSERVATION_UNIT_LEVEL_HIERARCHY TEXT,
+        OBSERVATION_UNIT_DESCRIPTION TEXT,
+        GROWTH_FACILITY_DESCRIPTION TEXT,
+        GROWTH_FACILITY_TYPE TEXT,
+        CULTURAL_PRACTICES TEXT,
+        EXPERIMENTAL_DESIGN_MAP TEXT[],
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(INVESTIGATION_ID, STUDY_ID)
+    );
+
+    -- Create person table
+    CREATE TABLE PERSON (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        STUDY_ID UUID NOT NULL REFERENCES STUDY(id) ON DELETE CASCADE,
+        NAME TEXT,
+        EMAIL TEXT,
+        PERSON_ID TEXT,
+        ROLE TEXT[],
+        AFFILIATION TEXT[],
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE study (
-        id SERIAL PRIMARY KEY,
-        investigation_id INTEGER REFERENCES investigation(id),
-        study_id TEXT NOT NULL,
-        study_title TEXT NOT NULL,
-        study_start_date DATE NOT NULL,
+    -- Create data_file table
+    CREATE TABLE DATA_FILE (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        STUDY_ID UUID NOT NULL REFERENCES STUDY(id) ON DELETE CASCADE,
+        FILE_LINK TEXT,
+        DESCRIPTION TEXT,
+        VERSION TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE person (
-        id SERIAL PRIMARY KEY,
-        investigation_id INTEGER REFERENCES investigation(id),
-        person_name TEXT NOT NULL,
-        person_role TEXT NOT NULL,
-        person_affiliation TEXT NOT NULL,
+    -- Create biological_material table
+    CREATE TABLE BIOLOGICAL_MATERIAL (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        STUDY_ID UUID NOT NULL REFERENCES STUDY(id) ON DELETE CASCADE,
+        BIOLOGICAL_MATERIAL_ID TEXT,
+        EXTERNAL_ID TEXT[],
+        ORGANISM TEXT,
+        GENUS TEXT,
+        SPECIES TEXT,
+        INFRASPECIFIC_NAME JSONB,
+        LATITUDE DECIMAL,
+        LONGITUDE DECIMAL,
+        ALTITUDE DECIMAL,
+        COORDINATE_UNCERTAINTY DECIMAL,
+        PREPROCESSING TEXT[],
+        SOURCE_ID TEXT,
+        SOURCE_DOI TEXT,
+        SOURCE_ACCESSION_NUMBER TEXT,
+        SOURCE_ACCESSION_NAME TEXT,
+        SOURCE_INSTITUTION_CODE TEXT,
+        SOURCE_INSTITUTION_NAME TEXT,
+        SOURCE_OTHER_IDS JSONB,
+        SOURCE_LATITUDE DECIMAL,
+        SOURCE_LONGITUDE DECIMAL,
+        SOURCE_ALTITUDE DECIMAL,
+        SOURCE_COORDINATE_UNCERTAINTY DECIMAL,
+        SOURCE_DESCRIPTION TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE data_file (
-        id SERIAL PRIMARY KEY,
-        investigation_id INTEGER REFERENCES investigation(id),
-        data_file_link TEXT,
-        data_file_desc TEXT,
-        data_file_version TEXT,
+    -- Create environment table
+    CREATE TABLE ENVIRONMENT (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        STUDY_ID UUID NOT NULL REFERENCES STUDY(id) ON DELETE CASCADE,
+        PARAMETER TEXT,
+        PARAMETER_VALUE TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE biological_material (
-        id SERIAL PRIMARY KEY,
-        investigation_id INTEGER REFERENCES investigation(id),
-        biological_material_id TEXT NOT NULL,
+    -- Create experimental_factor table
+    CREATE TABLE EXPERIMENTAL_FACTOR (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        STUDY_ID UUID NOT NULL REFERENCES STUDY(id) ON DELETE CASCADE,
+        FACTOR_TYPE TEXT,
+        FACTOR_DESCRIPTION TEXT,
+        FACTOR_VALUES TEXT[],
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE environment (
-        id SERIAL PRIMARY KEY,
-        investigation_id INTEGER REFERENCES investigation(id),
-        location_country TEXT,
-        site_name TEXT,
-        growth_facility_desc TEXT,
+    -- Create event table
+    CREATE TABLE EVENT (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        STUDY_ID UUID NOT NULL REFERENCES STUDY(id) ON DELETE CASCADE,
+        EVENT_TYPE TEXT,
+        ACCESSION_NUMBER TEXT,
+        DESCRIPTION TEXT,
+        EVENT_DATE TIMESTAMP WITH TIME ZONE[],
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE experimental_factor (
-        id SERIAL PRIMARY KEY,
-        investigation_id INTEGER REFERENCES investigation(id),
-        sample_id TEXT,
-        anatomical_entity TEXT,
-        collection_date DATE,
+    -- Create observation_unit table
+    CREATE TABLE OBSERVATION_UNIT (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        STUDY_ID UUID NOT NULL REFERENCES STUDY(id) ON DELETE CASCADE,
+        OBSERVATION_UNIT_ID TEXT,
+        OBSERVATION_UNIT_TYPE TEXT CHECK (OBSERVATION_UNIT_TYPE IN ('study', 'block', 'sub-block', 'plot', 'sub-plot', 'pot', 'plant')),
+        EXTERNAL_ID TEXT[],
+        SPATIAL_DISTRIBUTION JSONB,
+        FACTOR_VALUES TEXT[],
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE event (
-        id SERIAL PRIMARY KEY,
-        investigation_id INTEGER REFERENCES investigation(id),
-        event_type TEXT,
-        event_date DATE,
-        event_description TEXT,
+    -- Create sample table
+    CREATE TABLE SAMPLE (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        STUDY_ID UUID NOT NULL REFERENCES STUDY(id) ON DELETE CASCADE,
+        SAMPLE_ID TEXT,
+        DEVELOPMENT_STAGE TEXT,
+        ANATOMICAL_ENTITY TEXT,
+        DESCRIPTION TEXT,
+        COLLECTION_DATE TIMESTAMP WITH TIME ZONE,
+        EXTERNAL_ID TEXT[],
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE observation_unit (
-        id SERIAL PRIMARY KEY,
-        investigation_id INTEGER REFERENCES investigation(id),
-        obs_unit_id TEXT NOT NULL,
-        obs_unit_type TEXT NOT NULL,
-        obs_unit_desc TEXT,
+    -- Create observed_variable table
+    CREATE TABLE OBSERVED_VARIABLE (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        STUDY_ID UUID NOT NULL REFERENCES STUDY(id) ON DELETE CASCADE,
+        VARIABLE_ID TEXT,
+        VARIABLE_NAME TEXT,
+        ACCESSION_NUMBER TEXT,
+        TRAIT_NAME TEXT,
+        TRAIT_ENTITY TEXT,
+        TRAIT_ENTITY_ACCESSION_NUMBER TEXT,
+        TRAIT_CHARACTERISTIC TEXT,
+        TRAIT_CHARACTERISTIC_ACCESSION_NUMBER TEXT,
+        TRAIT_ACCESSION_NUMBER TEXT,
+        METHOD_NAME TEXT,
+        METHOD_ACCESSION_NUMBER TEXT,
+        METHOD_DESCRIPTION TEXT,
+        METHOD_REFERENCE TEXT,
+        SCALE_NAME TEXT,
+        SCALE_ACCESSION_NUMBER TEXT,
+        TIME_SCALE TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE sample (
-        id SERIAL PRIMARY KEY,
-        investigation_id INTEGER REFERENCES investigation(id),
-        sample_id TEXT,
-        sample_type TEXT,
-        sample_description TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE observed_variable (
-        id SERIAL PRIMARY KEY,
-        investigation_id INTEGER REFERENCES investigation(id),
-        variable_id TEXT NOT NULL,
-        trait_name TEXT NOT NULL,
-        method_name TEXT NOT NULL,
-        scale_name TEXT NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-
-    -- Create table for storing MIAPPE checklists
-    CREATE TABLE miappe_checklists (
-        id SERIAL PRIMARY KEY,
-        data JSONB NOT NULL,
-        is_complete BOOLEAN NOT NULL DEFAULT FALSE,
-        incomplete_scopes JSONB NOT NULL DEFAULT '[]',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-
-    -- Create a function to update the updated_at timestamp
+    -- Create function to update updated_at timestamp
     CREATE OR REPLACE FUNCTION update_updated_at_column()
     RETURNS TRIGGER AS $$
     BEGIN
@@ -133,62 +201,68 @@ data:
 
     -- Create triggers for all tables
     CREATE TRIGGER update_investigation_updated_at
-        BEFORE UPDATE ON investigation
+        BEFORE UPDATE ON INVESTIGATION
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
 
     CREATE TRIGGER update_study_updated_at
-        BEFORE UPDATE ON study
+        BEFORE UPDATE ON STUDY
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
 
     CREATE TRIGGER update_person_updated_at
-        BEFORE UPDATE ON person
+        BEFORE UPDATE ON PERSON
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
 
     CREATE TRIGGER update_data_file_updated_at
-        BEFORE UPDATE ON data_file
+        BEFORE UPDATE ON DATA_FILE
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
 
     CREATE TRIGGER update_biological_material_updated_at
-        BEFORE UPDATE ON biological_material
+        BEFORE UPDATE ON BIOLOGICAL_MATERIAL
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
 
     CREATE TRIGGER update_environment_updated_at
-        BEFORE UPDATE ON environment
+        BEFORE UPDATE ON ENVIRONMENT
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
 
     CREATE TRIGGER update_experimental_factor_updated_at
-        BEFORE UPDATE ON experimental_factor
+        BEFORE UPDATE ON EXPERIMENTAL_FACTOR
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
 
     CREATE TRIGGER update_event_updated_at
-        BEFORE UPDATE ON event
+        BEFORE UPDATE ON EVENT
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
 
     CREATE TRIGGER update_observation_unit_updated_at
-        BEFORE UPDATE ON observation_unit
+        BEFORE UPDATE ON OBSERVATION_UNIT
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
 
     CREATE TRIGGER update_sample_updated_at
-        BEFORE UPDATE ON sample
+        BEFORE UPDATE ON SAMPLE
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
 
     CREATE TRIGGER update_observed_variable_updated_at
-        BEFORE UPDATE ON observed_variable
+        BEFORE UPDATE ON OBSERVED_VARIABLE
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
 
-    -- Create trigger for miappe_checklists
-    CREATE TRIGGER update_miappe_checklists_updated_at
-        BEFORE UPDATE ON miappe_checklists
-        FOR EACH ROW
-        EXECUTE FUNCTION update_updated_at_column(); 
+    -- Create indexes for better query performance
+    CREATE INDEX idx_study_investigation_id ON STUDY(INVESTIGATION_ID);
+    CREATE INDEX idx_person_study_id ON PERSON(STUDY_ID);
+    CREATE INDEX idx_data_file_study_id ON DATA_FILE(STUDY_ID);
+    CREATE INDEX idx_biological_material_study_id ON BIOLOGICAL_MATERIAL(STUDY_ID);
+    CREATE INDEX idx_environment_study_id ON ENVIRONMENT(STUDY_ID);
+    CREATE INDEX idx_experimental_factor_study_id ON EXPERIMENTAL_FACTOR(STUDY_ID);
+    CREATE INDEX idx_event_study_id ON EVENT(STUDY_ID);
+    CREATE INDEX idx_observation_unit_study_id ON OBSERVATION_UNIT(STUDY_ID);
+    CREATE INDEX idx_sample_study_id ON SAMPLE(STUDY_ID);
+    CREATE INDEX idx_observed_variable_study_id ON OBSERVED_VARIABLE(STUDY_ID); 

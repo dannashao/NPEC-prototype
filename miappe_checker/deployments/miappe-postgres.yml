@@ -18,6 +18,18 @@ spec:
     requests:
       storage: 1Gi
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: miappe-postgres
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  selector:
+    app: miappe-postgres
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -34,33 +46,51 @@ spec:
         app: miappe-postgres
     spec:
       containers:
-      - name: postgres
-        image: postgres:15
-        ports:
-        - containerPort: 5432
-        envFrom:
-        - configMapRef:
-            name: miappe-postgres-config
-        volumeMounts:
-        - name: postgres-data
-          mountPath: /var/lib/postgresql/data
-        - name: init-script
-          mountPath: /docker-entrypoint-initdb.d
+        - name: postgres
+          image: postgres:15
+          envFrom:
+            - configMapRef:
+                name: miappe-postgres-config
+          ports:
+            - containerPort: 5432
+              name: postgres
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - miappe_user
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - miappe_user
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            - name: postgres-init
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
       volumes:
-      - name: postgres-data
-        persistentVolumeClaim:
-          claimName: miappe-postgres-pvc
-      - name: init-script
-        configMap:
-          name: miappe-postgres-init
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: miappe-postgres
-spec:
-  selector:
-    app: miappe-postgres
-  ports:
-  - port: 5432
-    targetPort: 5432 
+        - name: postgres-init
+          configMap:
+            name: miappe-postgres-init
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 1Gi 

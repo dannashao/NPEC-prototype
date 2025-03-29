@@ -4,6 +4,11 @@
 
 This document describes the PostgreSQL database schema used for storing MIAPPE (Minimum Information About a Plant Phenotyping Experiment) metadata. The schema is designed to align with the MIAPPE standard while providing efficient data storage and retrieval capabilities.
 
+## Quick Links
+[MIAPPE_Checklist-Data-Model-v1.1](https://github.com/MIAPPE/MIAPPE/tree/v1.1.2/MIAPPE_Checklist-Data-Model-v1.1)
+[Current schema](miappe_checker/docker/db/init.sql)
+
+
 ## Core Concepts
 
 ### Investigation (Top-Level)
