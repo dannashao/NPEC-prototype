@@ -9,108 +9,109 @@
 <body>
     <div class="container">
         <h1>MIAPPE Metadata Checker</h1>
-        <div class="header-actions">
-            <button id="reset-all" class="reset-button">Reset All Bindings</button>
-        </div>
         
-        <!-- Notification container -->
-        <div id="notification" class="notification"></div>
-
-        <!-- MongoDB Fields Section -->
-        <div class="mongo-fields">
-            <h2>Available MongoDB Fields</h2>
-            <div class="mongo-fields-container">
-                {% for field in mongo_fields %}
-                <div class="mongo-field" data-field="{{ field }}">
-                    <span class="field-name">{{ field }}</span>
-                    <div class="field-bindings"></div>
-                </div>
-                {% endfor %}
+        <!-- Stage 1: Investigation and Study ID Form -->
+        <div id="stage1" class="stage">
+            <h2>Enter Investigation and Study IDs</h2>
+            <div class="form-group">
+                <label for="investigation_id">Investigation ID:</label>
+                <input type="text" id="investigation_id" name="investigation_id" placeholder="Enter investigation ID">
             </div>
+            <div class="form-group">
+                <label for="study_id">Study ID:</label>
+                <input type="text" id="study_id" name="study_id" placeholder="Enter study ID">
+            </div>
+            <button id="check-ids" class="primary-button">Check IDs</button>
         </div>
 
-        <!-- Color Legend -->
-        <div class="color-legend">
-            <div class="legend-item">
-                <span class="legend-color requirement-0"></span>
-                <span class="legend-text">Mandatory</span>
+        <!-- Stage 2: Main Form (Initially Hidden) -->
+        <div id="stage2" class="stage" style="display: none;">
+            <div class="header-actions">
+                <button id="reset-all" class="reset-button">Reset All Bindings</button>
             </div>
-            <div class="legend-item">
-                <span class="legend-color requirement-1"></span>
-                <span class="legend-text">Recommended</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-color requirement-2"></span>
-                <span class="legend-text">Optional</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-color requirement-3"></span>
-                <span class="legend-text">Read-only</span>
-            </div>
-        </div>
-
-        <form id="miappe-form">
-            {% for scope_name, scope in scopes.items() %}
-            <div class="form-section requirement-{{ scope.requirement }}">
-                <h2>{{ scope_name }}</h2>
-                <div class="scope-description">
-                    {% if scope_name == 'INVESTIGATION' %}
-                    Investigations are research programmes with defined aims. They can exist at various scales (for example, they could encompass a grant-funded programme of work, the various components comprising a peer-reviewed publication, or a single experiment).
-                    {% elif scope_name == 'STUDY' %}
-                    A study (or experiment) comprises a series of assays (or measurements) of one or more types, undertaken to answer a particular biological question.
-                    {% elif scope_name == 'PERSON' %}
-                    A human involved in the investigation or specifically any of its studies.
-                    {% elif scope_name == 'DATA FILE' %}
-                    A file or digital object holding observation data recorded during one or more assays of the study, typically in tabular form. Multiple data files may be provided per study, and each file can include observations for several observation units and several observed variables.
-                    {% elif scope_name == 'BIOLOGICAL MATERIAL' %}
-                    The biological material being studied (e.g. plants grown from a certain bag or seed, or plants grown in a particular field). The original source of that material (e.g., the seeds or the original plant cloned) is called the material source, which, when held by a material repository, should have its stock identified.
-                    {% elif scope_name == 'ENVIRONMENT' %}
-                    Environmental parameters that were kept constant throughout the study and did not change between observation units or assays. Environment characteristics that vary over time, i.e. environmental variables, should be recorded as Observed Variables.
-                    {% elif scope_name == 'EXPERIMENTAL FACTOR' %}
-                    The object of a study is to ascertain the impact of one or more factors on the biological material. Thus, a factor is, by definition a condition that varies between observation units, which may be biotic (pest, disease interaction) or abiotic (treatment and cultural practice) in nature.
-                    {% elif scope_name == 'EVENT' %}
-                    An event is discrete occurrence at a particular time in the experiment (which can be natural, such as rain, or unnatural, such as planting, watering, etc). Events may be the realization of Factors or parts of Factors, or may be confounding to Factors.
-                    {% elif scope_name == 'OBSERVATION UNIT' %}
-                    Observation units are objects that are subject to instances of observation and measurement. An observation unit comprises one or more plants, and/or their environment. There can be pure environment observation units with no plants.
-                    {% elif scope_name == 'SAMPLE' %}
-                    A sample is a portion of plant tissue harvested, non-harvested or extracted from an observation unit for the purpose of sub-plant observations and/or molecular studies. A sample must be used when there is a physical sample that needs to be stored and traced.
-                    {% elif scope_name == 'OBSERVED VARIABLE' %}
-                    An observed variable describes how a measurement has been made. It typically takes the form of a measured characteristic of the observation unit (plant or environmental trait), associated to the method and unit of measurement.
-                    {% endif %}
-                </div>
-                {% for field_name, field in scope.fields.items() %}
-                <div class="form-group">
-                    <label for="{{ scope_name }}.{{ field_name }}">
-                        <span class="requirement-indicator requirement-{{ field.requirement }}"></span>
-                        {{ field_name }}
-                        {% if field.requirement == 0 %}
-                        <span class="mandatory">*</span>
-                        {% endif %}
-                    </label>
-                    <textarea 
-                           id="{{ scope_name }}.{{ field_name }}"
-                           name="{{ scope_name }}.{{ field_name }}"
-                           placeholder="{{ field.example }}"
-                           data-requirement="{{ field.requirement }}"
-                           rows="1"></textarea>
-                    <div class="description">{{ field.definition }}</div>
-                    <div class="mongo-field-select">
-                        <select class="mongo-field-dropdown">
-                            <option value="">Select MongoDB field...</option>
-                            {% for mongo_field in mongo_fields %}
-                            <option value="{{ mongo_field }}">{{ mongo_field }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% endfor %}
             
-            <button type="submit">Save Checklist</button>
-        </form>
+            <!-- Notification container -->
+            <div id="notification" class="notification"></div>
+
+            <!-- MongoDB Fields Section -->
+            <div class="mongo-fields">
+                <h2>Available MongoDB Fields</h2>
+                <div class="mongo-fields-container">
+                    {% for field in mongo_fields %}
+                    <div class="mongo-field" data-field="{{ field }}">
+                        <span class="field-name">{{ field }}</span>
+                        <div class="field-bindings"></div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Color Legend -->
+            <div class="color-legend">
+                <div class="legend-item">
+                    <span class="legend-color requirement-0"></span>
+                    <span class="legend-text">Mandatory</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color requirement-1"></span>
+                    <span class="legend-text">Recommended</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color requirement-2"></span>
+                    <span class="legend-text">Optional</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color requirement-3"></span>
+                    <span class="legend-text">Read-only</span>
+                </div>
+            </div>
+
+            <form id="miappe-form">
+                {% for scope_name, scope in scopes.items() %}
+                <div class="form-section requirement-{{ scope.requirement }}">
+                    <h3>{{ scope_name }}</h3>
+                    <div class="scope-description">
+                        {{ scope.description }}
+                    </div>
+                    {% for field_name, field in scope.fields.items() %}
+                    <div class="form-group">
+                        <label for="{{ scope_name }}.{{ field.codename }}">
+                            <span class="requirement-indicator requirement-{{ field.requirement }}"></span>
+                            {{ field_name }}
+                            {% if field.requirement == 0 %}
+                            <span class="mandatory">*</span>
+                            {% endif %}
+                        </label>
+                        <textarea 
+                            id="{{ scope_name }}.{{ field.codename }}"
+                            name="{{ scope_name }}.{{ field.codename }}"
+                            placeholder="{{ field.example }}"
+                            data-requirement="{{ field.requirement }}"
+                            data-format="{{ field.format }}"
+                            data-cardinality="{{ field.cardinality }}"
+                            rows="1"></textarea>
+                        <div class="description">{{ field.definition }}</div>
+                        <div class="field-bindings"></div>
+                        <div class="mongo-field-select">
+                            <select class="mongo-field-dropdown">
+                                <option value="">Select MongoDB field...</option>
+                                {% for mongo_field in mongo_fields %}
+                                <option value="{{ mongo_field }}">{{ mongo_field }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+                
+                <button type="submit">Save Checklist</button>
+            </form>
+        </div>
     </div>
 
-    <script src="/miappe/static/script.js"></script>
+    <script src="/miappe/static/js/utils.js"></script>
+    <script src="/miappe/static/js/field_mappings.js"></script>
+    <script src="/miappe/static/js/app.js"></script>
 </body>
 </html> 

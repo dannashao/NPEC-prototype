@@ -1,61 +1,121 @@
 #!/bin/bash
+
+# Exit on error
 set -e
+
+# Function to show usage
+show_usage() {
+    echo "Usage: $0 [--clean]"
+    echo "Options:"
+    echo "  --clean    Perform a complete cleanup of all resources before setup"
+    exit 1
+}
+
+# Function to perform cleanup
+cleanup() {
+    echo "Performing complete cleanup..."
+    
+    # Delete deployments and services
+    kubectl delete deployment miappe-checker --ignore-not-found
+    kubectl delete service miappe-checker --ignore-not-found
+    kubectl delete statefulset miappe-postgres --ignore-not-found
+    kubectl delete service miappe-postgres --ignore-not-found
+    
+    # Delete configmaps
+    kubectl delete configmap miappe-postgres-config --ignore-not-found
+    kubectl delete configmap miappe-postgres-init --ignore-not-found
+    
+    # Delete PVCs
+    kubectl delete pvc postgres-data-miappe-postgres-0 --ignore-not-found
+    kubectl delete pvc miappe-postgres-pvc --ignore-not-found
+    
+    # Delete PVs (get all PVs related to our app and delete them)
+    for pv in $(kubectl get pv | grep "postgres-data-miappe-postgres" | awk '{print $1}'); do
+        kubectl delete pv $pv --ignore-not-found
+    done
+    
+    # Wait for resources to be deleted
+    echo "Waiting for resources to be deleted..."
+    sleep 10
+    
+    # Verify cleanup
+    echo "Verifying cleanup..."
+    if kubectl get pvc | grep -q "postgres-data-miappe-postgres"; then
+        echo "Warning: Some PVCs still exist. You may need to delete them manually."
+    fi
+    if kubectl get pv | grep -q "postgres-data-miappe-postgres"; then
+        echo "Warning: Some PVs still exist. You may need to delete them manually."
+    fi
+}
+
+# Parse command line arguments
+CLEAN=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --clean)
+            CLEAN=true
+            shift
+            ;;
+        -h|--help)
+            show_usage
+            ;;
+        *)
+            echo "Unknown option: $1"
+            show_usage
+            ;;
+    esac
+done
 
 echo "Setting up MIAPPE Checker..."
 
-# Clean up existing resources
-echo "Cleaning up existing resources..."
-kubectl delete deployment miappe-checker --ignore-not-found=true
-kubectl delete service miappe-checker-service --ignore-not-found=true
-kubectl delete configmap miappe-schema-config --ignore-not-found=true
-kubectl delete statefulset miappe-postgres --ignore-not-found=true
-kubectl delete service miappe-postgres --ignore-not-found=true
-kubectl delete pvc miappe-postgres-pvc --ignore-not-found=true
-kubectl delete configmap miappe-postgres-config --ignore-not-found=true
-kubectl delete configmap miappe-postgres-init --ignore-not-found=true
+# Check if we're in the correct directory
+if [ ! -f "setup_miappe.sh" ]; then
+    echo "Please run this script from the miappe_checker/scripts directory"
+    exit 1
+fi
 
-# Create ConfigMaps
-echo "Creating ConfigMaps..."
-kubectl create configmap miappe-schema-config \
-  --from-file=../src/models/MIAPPE_Checklist_Data_Model_with_Requirements.csv
+# Check if Kind cluster exists
+if ! kind get clusters | grep -q "plant-cluster"; then
+    echo "Error: Kind cluster 'plant-cluster' not found"
+    exit 1
+fi
 
-# Build Docker images
-echo "Building Docker images..."
-cd ../docker/web
-docker build -t localhost:5001/miappe-checker-web:latest -f Dockerfile ../..
+# Perform cleanup if requested
+if [ "$CLEAN" = true ]; then
+    cleanup
+fi
 
-cd ../backend
-docker build -t localhost:5001/miappe-checker-backend:latest -f Dockerfile .
+# Apply PostgreSQL configuration
+echo "Applying PostgreSQL configuration..."
+kubectl apply -f ../deployments/miappe-postgres-config.yml
+kubectl apply -f ../deployments/miappe-postgres-init.yml
 
-# Load images into kind cluster
-echo "Loading images into kind cluster..."
-kind load docker-image localhost:5001/miappe-checker-web:latest --name plant-cluster
-kind load docker-image localhost:5001/miappe-checker-backend:latest --name plant-cluster
-
-# Apply deployments
-echo "Applying Kubernetes resources..."
-cd ../../deployments
-kubectl apply -f miappe-postgres.yml
-kubectl apply -f miappe-postgres-init.yml
-kubectl apply -f miappe-checker-deployment.yml
+# Apply PostgreSQL StatefulSet
+echo "Applying PostgreSQL StatefulSet..."
+kubectl apply -f ../deployments/miappe-postgres.yml
 
 # Wait for PostgreSQL to be ready
 echo "Waiting for PostgreSQL to be ready..."
 kubectl wait --for=condition=ready pod -l app=miappe-postgres --timeout=120s
 
-# Update ingress by adding MIAPPE path
-echo "Updating ingress configuration..."
-# Get current ingress configuration
-kubectl get ingress plant-data-ingress -o yaml > current-ingress.yml
+# Build and load Docker images
+echo "Building Docker images..."
+cd ..
+docker build -t miappe-checker-web:latest -f docker/web/Dockerfile .
+docker build -t miappe-checker-backend:latest -f docker/backend/Dockerfile .
+cd scripts
 
-# Remove all existing MIAPPE paths and add the correct one
-yq e 'del(.spec.rules[0].http.paths[] | select(.backend.service.name == "miappe-checker-service"))' -i current-ingress.yml
-yq e '.spec.rules[0].http.paths += [{"backend":{"service":{"name":"miappe-checker-service","port":{"number":80}}},"path":"/miappe","pathType":"Prefix"}]' -i current-ingress.yml
+# Load images into kind cluster
+echo "Loading images into kind cluster..."
+kind load docker-image miappe-checker-web:latest --name plant-cluster
+kind load docker-image miappe-checker-backend:latest --name plant-cluster
 
-# Apply updated ingress
-kubectl apply -f current-ingress.yml
+# Apply MIAPPE Checker deployment
+echo "Applying MIAPPE Checker deployment..."
+kubectl apply -f ../deployments/miappe-checker-deployment.yml
 
-# Clean up temporary files
-rm current-ingress.yml
+# Wait for deployment to be ready
+echo "Waiting for MIAPPE Checker to be ready..."
+kubectl wait --for=condition=available deployment/miappe-checker --timeout=120s
 
 echo "MIAPPE Checker setup complete!" 

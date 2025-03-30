@@ -9,11 +9,11 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 COPY docker/web/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the src directory
-COPY src /app/src
-
-# Copy web files
-COPY docker/web .
+# Copy the web application files
+COPY docker/web/app.py .
+COPY docker/web/static ./static
+COPY docker/web/templates ./templates
+COPY docker/web/src ./src
 
 ENV PYTHONPATH=/app
 
