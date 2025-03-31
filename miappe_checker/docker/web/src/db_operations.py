@@ -31,10 +31,33 @@ def create_new_investigation(cursor, investigation_id):
     """Create a new investigation record."""
     try:
         cursor.execute("""
-            INSERT INTO INVESTIGATION (INVESTIGATION_ID, TITLE, DESCRIPTION, MIAPPE_VERSION)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id, INVESTIGATION_ID, TITLE, DESCRIPTION, MIAPPE_VERSION
-        """, (investigation_id, f"Investigation {investigation_id}", "", "1.0"))
+            INSERT INTO INVESTIGATION (
+                INVESTIGATION_ID, INVESTIGATION_ID_BINDING,
+                TITLE, TITLE_BINDING,
+                DESCRIPTION, DESCRIPTION_BINDING,
+                SUBMISSION_DATE, SUBMISSION_DATE_BINDING,
+                PUBLIC_RELEASE_DATE, PUBLIC_RELEASE_DATE_BINDING,
+                LICENSE, LICENSE_BINDING,
+                MIAPPE_VERSION, MIAPPE_VERSION_BINDING,
+                ASSOCIATED_PUBLICATION, ASSOCIATED_PUBLICATION_BINDING
+            )
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+            RETURNING id, INVESTIGATION_ID, INVESTIGATION_ID_BINDING, TITLE, TITLE_BINDING, 
+                      DESCRIPTION, DESCRIPTION_BINDING, SUBMISSION_DATE, SUBMISSION_DATE_BINDING,
+                      PUBLIC_RELEASE_DATE, PUBLIC_RELEASE_DATE_BINDING, LICENSE, LICENSE_BINDING,
+                      MIAPPE_VERSION, MIAPPE_VERSION_BINDING, ASSOCIATED_PUBLICATION, ASSOCIATED_PUBLICATION_BINDING
+        """, (
+            investigation_id, None,
+            f"Investigation {investigation_id}", None,
+            "", None,
+            None, None,
+            None, None,
+            None, None,
+            "1.0", None,
+            "", None
+        ))
         result = cursor.fetchone()
         logger.info(f"Created new investigation: {result}")
         return result

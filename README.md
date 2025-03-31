@@ -1,12 +1,13 @@
-# Plant Monitoring System
+# NPEC Prototype
 
-A Kubernetes-based system for monitoring plant sensor data and images, with genomic data integration.
+A Kubernetes-based scalable data pipeline for multi-modal plant experimental data, incorporating real-time validation, MIAPPE metadata compliance and system monitoring.
 
 ## Quick Links
 - [Data Structure Guide](docs/data-structure.md)
 - [StatefulSet Configuration](docs/statefulset.md)
 - [Storage Configuration](docs/storage.md)
 - [Monitoring and Validation](docs/monitoring.md)
+- [MIAPPE Checker Documentation](miappe_checker/README.md)
 
 ## System Architecture
 
@@ -15,12 +16,15 @@ The system consists of the following components:
 - **Receiver**: REST API service that processes incoming data
 - **MongoDB**: Database for storing sensor data, images, and genomic information
 - **MongoDB Express**: Web-based MongoDB admin interface
+- **MIAPPE Checker**: Web-based tool for validating and managing plant experiment metadata
+- **PostgreSQL**: Database for storing validated MIAPPE metadata
 
 ## Prerequisites
 
 - Docker
 - Kubernetes (Kind)
 - kubectl
+- Python 3.8+ (for MIAPPE Checker development)
 
 ## Quick Start
 
@@ -37,13 +41,25 @@ cd plant-monitoring-system
 ./scripts/setup.sh
 ```
 
-4. Deploy the system:
+4. Deploy the system components:
 
-**WARNING: This script deletes all existing resources. Use it only for the first time deployment or system reset.**
+**WARNING: These scripts delete existing resources. Use only for first-time deployment or system reset.**
 
 ```bash
+# Deploy core components
 ./scripts/deploy.sh
+
+# Deploy MIAPPE Checker
+cd miappe_checker/scripts
+./setup_miappe.sh [--clean]
 ```
+
+The `setup_miappe.sh` script:
+- Verifies cluster prerequisites
+- Sets up PostgreSQL database
+- Deploys MIAPPE Checker web interface
+- Configures necessary Kubernetes resources
+Use `--clean` flag for fresh installation
 
 ## Access Points
 
@@ -53,9 +69,11 @@ cd plant-monitoring-system
 - `GET /validate`: Real-time data validation status
 - `GET /validate/system`: System-wide validation status
 
-### MongoDB Express Interface
-- URL: `http://plant-data.local/mongo-express`
-- Credentials: admin/pass
+### Web Interfaces
+- **MongoDB Express**: `http://plant-data.local/mongo-express`
+  - Credentials: admin/pass
+- **MIAPPE Checker**: `http://plant-data.local/miappe`
+  - Interface for managing plant experiment metadata
 
 ## Basic Monitoring
 ```bash
@@ -67,6 +85,9 @@ curl "http://plant-data.local/validate/system"
 
 # View recent logs
 kubectl logs -l app=receiver --tail=100
+
+# View MIAPPE Checker logs
+kubectl logs -l app=miappe-checker
 ```
 
 See [Monitoring and Validation](docs/monitoring.md) for detailed monitoring information.
@@ -75,6 +96,11 @@ See [Monitoring and Validation](docs/monitoring.md) for detailed monitoring info
 
 Remove all resources:
 ```bash
+# Clean up MIAPPE Checker (optional)
+cd miappe_checker/scripts
+./setup_miappe.sh --clean
+
+# Remove entire cluster
 kind delete cluster --name plant-cluster
 ```
 
@@ -86,6 +112,11 @@ If you encounter issues:
 3. Ensure all prerequisites are installed
 4. Verify network connectivity: `kubectl get ingress`
 5. Check MongoDB Express access at `/mongo-express`
+6. Check MIAPPE Checker access at `/miappe`
+7. For MIAPPE Checker specific issues:
+   - Verify PostgreSQL is running: `kubectl get pods -l app=miappe-postgres`
+   - Check persistent volumes: `kubectl get pv,pvc`
+   - View MIAPPE logs: `kubectl logs -l app=miappe-checker`
 
 ## Environment Variables
 
@@ -100,4 +131,10 @@ Receiver:
 
 MongoDB Express:
 - `ME_CONFIG_BASICAUTH_USERNAME`: Admin username (default: "admin")
-- `ME_CONFIG_BASICAUTH_PASSWORD`: Admin password (default: "pass") 
+- `ME_CONFIG_BASICAUTH_PASSWORD`: Admin password (default: "pass")
+
+MIAPPE Checker:
+- `FLASK_APP`: Application entry point (default: "app.py")
+- `FLASK_ENV`: Environment mode (development/production)
+- `POSTGRES_URI`: PostgreSQL connection string
+- `MONGODB_URI`: MongoDB connection string 

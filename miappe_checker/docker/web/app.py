@@ -243,30 +243,47 @@ def save_checklist():
                 if field in ['is_new_record', 'created_at']:
                     continue
                     
-                # Convert frontend field to backend field
-                backend_field = FRONTEND_TO_BACKEND.get(field)
-                if not backend_field:
-                    app.logger.warning(f"No backend mapping found for field: {field}")
-                    continue
-                    
-                # Get database field from backend field
-                db_field = None
-                for db_key, backend_value in DB_TO_BACKEND.items():
-                    if backend_value == backend_field:
-                        db_field = db_key.split('.')[1]  # Get the part after the scope
-                        break
-                        
-                if not db_field:
-                    app.logger.warning(f"No database mapping found for backend field: {backend_field}")
-                    continue
-                    
                 # Check if this is a binding field
                 is_binding = field.endswith('_binding')
                 if is_binding:
-                    field = field[:-8]  # Remove '_binding' suffix
+                    # For binding fields, we need to look up the base field first
+                    base_field = field[:-8]  # Remove '_binding' suffix
+                    backend_field = FRONTEND_TO_BACKEND.get(base_field)
+                    if not backend_field:
+                        app.logger.warning(f"No backend mapping found for base field: {base_field}")
+                        continue
+                        
+                    # Get database field from backend field
+                    db_field = None
+                    for db_key, backend_value in DB_TO_BACKEND.items():
+                        if backend_value == backend_field:
+                            db_field = db_key.split('.')[1]  # Get the part after the scope
+                            break
+                            
+                    if not db_field:
+                        app.logger.warning(f"No database mapping found for backend field: {backend_field}")
+                        continue
+                        
                     db_field = f"{db_field}_BINDING"
                     app.logger.info(f"Processing binding field: {field} -> {db_field} with value: {value}")
                 else:
+                    # For regular fields
+                    backend_field = FRONTEND_TO_BACKEND.get(field)
+                    if not backend_field:
+                        app.logger.warning(f"No backend mapping found for field: {field}")
+                        continue
+                        
+                    # Get database field from backend field
+                    db_field = None
+                    for db_key, backend_value in DB_TO_BACKEND.items():
+                        if backend_value == backend_field:
+                            db_field = db_key.split('.')[1]  # Get the part after the scope
+                            break
+                            
+                    if not db_field:
+                        app.logger.warning(f"No database mapping found for backend field: {backend_field}")
+                        continue
+                        
                     app.logger.info(f"Processing regular field: {field} -> {db_field} with value: {value}")
                 
                 # Skip if we've already processed this field
@@ -311,27 +328,59 @@ def save_checklist():
                     insert_values = []
                     
                     for field, value in fields.items():
-                        backend_field = FRONTEND_TO_BACKEND.get(field)
-                        if backend_field:
+                        # Skip metadata fields
+                        if field in ['is_new_record', 'created_at']:
+                            continue
+                            
+                        # Check if this is a binding field
+                        is_binding = field.endswith('_binding')
+                        if is_binding:
+                            # For binding fields, we need to look up the base field first
+                            base_field = field[:-8]  # Remove '_binding' suffix
+                            backend_field = FRONTEND_TO_BACKEND.get(base_field)
+                            if not backend_field:
+                                app.logger.warning(f"No backend mapping found for base field: {base_field}")
+                                continue
+                                
+                            # Get database field from backend field
+                            db_field = None
                             for db_key, backend_value in DB_TO_BACKEND.items():
                                 if backend_value == backend_field:
-                                    db_field = db_key.split('.')[1]
-                                    # Check if this is a binding field
-                                    is_binding = field.endswith('_binding')
-                                    if is_binding:
-                                        field = field[:-8]  # Remove '_binding' suffix
-                                        db_field = f"{db_field}_BINDING"
-                                        app.logger.info(f"Processing binding field for insert: {field} -> {db_field} with value: {value}")
-                                    else:
-                                        app.logger.info(f"Processing regular field for insert: {field} -> {db_field} with value: {value}")
-                                    
-                                    # Convert empty string to None for database
-                                    if value == '':
-                                        value = None
-                                        
-                                    insert_fields.append(db_field)
-                                    insert_values.append(value)
+                                    db_field = db_key.split('.')[1]  # Get the part after the scope
                                     break
+                                    
+                            if not db_field:
+                                app.logger.warning(f"No database mapping found for backend field: {backend_field}")
+                                continue
+                                
+                            db_field = f"{db_field}_BINDING"
+                            app.logger.info(f"Processing binding field for insert: {field} -> {db_field} with value: {value}")
+                        else:
+                            # For regular fields
+                            backend_field = FRONTEND_TO_BACKEND.get(field)
+                            if not backend_field:
+                                app.logger.warning(f"No backend mapping found for field: {field}")
+                                continue
+                                
+                            # Get database field from backend field
+                            db_field = None
+                            for db_key, backend_value in DB_TO_BACKEND.items():
+                                if backend_value == backend_field:
+                                    db_field = db_key.split('.')[1]  # Get the part after the scope
+                                    break
+                                    
+                            if not db_field:
+                                app.logger.warning(f"No database mapping found for backend field: {backend_field}")
+                                continue
+                                
+                            app.logger.info(f"Processing regular field for insert: {field} -> {db_field} with value: {value}")
+                        
+                        # Convert empty string to None for database
+                        if value == '':
+                            value = None
+                            
+                        insert_fields.append(db_field)
+                        insert_values.append(value)
                     
                     insert_fields.append('study_id')
                     insert_values.append(study_db_id)

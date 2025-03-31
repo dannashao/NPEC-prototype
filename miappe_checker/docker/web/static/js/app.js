@@ -67,23 +67,64 @@ const initializeFormWithData = (data) => {
             
             // Set MongoDB binding if exists
             if (binding) {
-                const fieldBindings = element.closest('.form-group').querySelector('.field-bindings');
-                if (fieldBindings) {
-                    // Clear existing bindings
-                    fieldBindings.innerHTML = '';
+                // Find the dropdown for this field
+                const formGroup = element.closest('.form-group');
+                const dropdown = formGroup.querySelector('.mongo-field-dropdown');
+                if (dropdown) {
+                    dropdown.value = binding;
+                    dropdown.dataset.selectedValue = binding;
+                    dropdown.dataset.selectedScope = scope;
+                    dropdown.dataset.selectedField = field;
+                }
+                
+                // Update MongoDB field display
+                const mongoField = document.querySelector(`.mongo-field[data-field="${binding}"]`);
+                if (mongoField) {
+                    // Add bound class to the MongoDB field itself
+                    mongoField.classList.add('bound');
                     
+                    // Create or update bindings container
+                    let bindingsContainer = mongoField.querySelector('.field-bindings');
+                    if (!bindingsContainer) {
+                        bindingsContainer = document.createElement('div');
+                        bindingsContainer.className = 'field-bindings';
+                        mongoField.appendChild(bindingsContainer);
+                    }
+                    
+                    // Clear existing bindings
+                    bindingsContainer.innerHTML = '';
+                    
+                    // Create binding element
                     const bindingElement = document.createElement('div');
                     bindingElement.className = 'field-binding';
-                    bindingElement.textContent = binding;
+                    bindingElement.setAttribute('data-scope', scope);
+                    bindingElement.setAttribute('data-field-name', field);
                     
-                    // Add remove button
+                    // Create binding text
+                    const bindingText = document.createElement('span');
+                    bindingText.className = 'binding-text';
+                    bindingText.textContent = `${field} (${scope})`;
+                    
+                    // Create remove button
                     const removeBtn = document.createElement('button');
                     removeBtn.className = 'remove-binding';
                     removeBtn.textContent = '×';
-                    removeBtn.onclick = () => bindingElement.remove();
+                    removeBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        removeBinding(mongoField, bindingElement);
+                        
+                        // Reset the corresponding dropdown
+                        if (dropdown) {
+                            dropdown.value = '';
+                            delete dropdown.dataset.selectedValue;
+                            delete dropdown.dataset.selectedScope;
+                            delete dropdown.dataset.selectedField;
+                        }
+                    };
                     
+                    bindingElement.appendChild(bindingText);
                     bindingElement.appendChild(removeBtn);
-                    fieldBindings.appendChild(bindingElement);
+                    bindingsContainer.appendChild(bindingElement);
                 }
             }
         } else {
@@ -205,15 +246,12 @@ const initializeMongoFieldDropdowns = () => {
             }
             console.log('Found form group:', formGroup);
             
-            // Get the textarea in this form group
+            // Get the scope and field from the textarea name
             const textarea = formGroup.querySelector('textarea');
             if (!textarea) {
                 console.error('Could not find textarea in form group');
                 return;
             }
-            console.log('Found textarea:', textarea);
-            
-            // Get the scope and field from the textarea name
             const [scope, field] = textarea.name.split('.');
             console.log('Parsed scope and field:', { scope, field });
             
@@ -233,10 +271,6 @@ const initializeMongoFieldDropdowns = () => {
                 // Add bound class to form group
                 formGroup.classList.add('bound');
                 console.log('Added bound class to form group');
-                
-                // Update textarea value
-                textarea.value = selectedField;
-                textarea.dispatchEvent(new Event('input'));
                 
                 // Store the selected value in the dropdown
                 newDropdown.dataset.selectedValue = selectedField;
@@ -492,8 +526,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const backendField = FRONTEND_TO_BACKEND[fieldName];
                     if (backendField) {
                         // Add the binding with the correct field name format
-                        formData[scope][`${backendField}_binding`] = mongoFieldValue;
-                        console.log(`Added binding for ${scope}.${backendField}: ${mongoFieldValue}`);
+                        formData[scope][`${fieldName}_binding`] = mongoFieldValue;
+                        console.log(`Added binding for ${scope}.${fieldName}: ${mongoFieldValue}`);
                     } else {
                         console.warn(`No backend mapping found for field: ${fieldName}`);
                     }
@@ -515,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Convert field name to match backend format
                     const backendField = FRONTEND_TO_BACKEND[fieldName];
                     if (backendField) {
-                        formData[scope][backendField] = input.value;
+                        formData[scope][fieldName] = input.value;
                     } else {
                         console.warn(`No backend mapping found for field: ${fieldName}`);
                     }
